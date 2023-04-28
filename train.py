@@ -301,7 +301,7 @@ def main():
             width=args.image_size,
             frame_skip=args.action_repeat
         )
-        env.seed(args.seed)
+        # env._seed(args.seed)
 
         eval_env = dmc2gym.make(
             domain_name=args.domain_name,
