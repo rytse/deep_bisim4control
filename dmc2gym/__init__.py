@@ -26,7 +26,7 @@ def make(
     # shorten episode length
     max_episode_steps = (episode_length + frame_skip - 1) // frame_skip
 
-    if not env_id in gym.envs.registry:
+    if not env_id in gym.envs.registry.env_specs:
         register(
             id=env_id,
             entry_point='dmc2gym.wrappers:DMCWrapper',
@@ -49,4 +49,4 @@ def make(
             },
             max_episode_steps=max_episode_steps
         )
-    return gym.make(env_id, apply_api_compatibility=True)
+    return gym.make(env_id)
