@@ -174,10 +174,9 @@ class FrameStack(gym.Wrapper):
         return self._get_obs()
 
     def step(self, action):
-        # this should really be done -> terminated
-        obs, reward, terminated, _, info = self.env.step(action)
+        obs, reward, done, info = self.env.step(action)
         self._frames.append(obs)
-        return self._get_obs(), reward, terminated, info
+        return self._get_obs(), reward, done, info
 
     def _get_obs(self):
         assert len(self._frames) == self._k

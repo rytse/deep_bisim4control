@@ -26,6 +26,7 @@ dependencies:
   - pip
   - dm_control
   - pip:
+    - gym==0.25.2
     - labmaze==1.0.5
       # - dm_control
     - gym-dmc
