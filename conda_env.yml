@@ -26,18 +26,6 @@ dependencies:
   - pip
   - dm_control
   - pip:
-    - gym==0.25.2
+    - gym==0.21
     - labmaze==1.0.5
-      # - dm_control
     - gym-dmc
-      # - opencv-python
-      # - pillow==6.1
-      # - scikit-image
-      # - scikit-video
-      # - tb-nightly
-      # - tqdm
-      # - imageio
-      # - imageio-ffmpeg
-      # - pygame
-      # - networkx
-      # - dotmap
