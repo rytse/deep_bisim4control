@@ -22,7 +22,7 @@ from agent.bisim_agent import BisimAgent
 from agent.deepmdp_agent import DeepMDPAgent
 from agents.navigation.carla_env import CarlaEnv
 
-os.environ["MUJOCO_GL"] = "osmesa"
+# os.environ["MUJOCO_GL"] = "osmesa"
 
 
 def parse_args():
