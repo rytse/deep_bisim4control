@@ -44,50 +44,64 @@ def weight_init(m):
         m.weight.data.fill_(0.0)
         m.bias.data.fill_(0.0)
         mid = m.weight.size(2) // 2
-        gain = nn.init.calculate_gain('relu')
+        gain = nn.init.calculate_gain("relu")
         nn.init.orthogonal_(m.weight.data[:, :, mid, mid], gain)
 
 
 class Actor(nn.Module):
     """MLP actor network."""
+
     def __init__(
-        self, obs_shape, action_shape, hidden_dim, encoder_type,
-        encoder_feature_dim, log_std_min, log_std_max, num_layers, num_filters, stride
+        self,
+        obs_shape,
+        action_shape,
+        hidden_dim,
+        encoder_type,
+        encoder_feature_dim,
+        log_std_min,
+        log_std_max,
+        num_layers,
+        num_filters,
+        stride,
     ):
         super().__init__()
 
         self.encoder = make_encoder(
-            encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride
+            encoder_type,
+            obs_shape,
+            encoder_feature_dim,
+            num_layers,
+            num_filters,
+            stride,
         )
 
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
 
         self.trunk = nn.Sequential(
-            nn.Linear(self.encoder.feature_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, 2 * action_shape[0])
+            nn.Linear(self.encoder.feature_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 2 * action_shape[0]),
         )
 
         self.outputs = dict()
         self.apply(weight_init)
 
-    def forward(
-        self, obs, compute_pi=True, compute_log_pi=True, detach_encoder=False
-    ):
+    def forward(self, obs, compute_pi=True, compute_log_pi=True, detach_encoder=False):
         obs = self.encoder(obs, detach=detach_encoder)
 
         mu, log_std = self.trunk(obs).chunk(2, dim=-1)
 
         # constrain log_std inside [log_std_min, log_std_max]
         log_std = torch.tanh(log_std)
-        log_std = self.log_std_min + 0.5 * (
-            self.log_std_max - self.log_std_min
-        ) * (log_std + 1)
+        log_std = self.log_std_min + 0.5 * (self.log_std_max - self.log_std_min) * (
+            log_std + 1
+        )
 
-        self.outputs['mu'] = mu
-        self.outputs['std'] = log_std.exp()
+        self.outputs["mu"] = mu
+        self.outputs["std"] = log_std.exp()
 
         if compute_pi:
             std = log_std.exp()
@@ -111,22 +125,25 @@ class Actor(nn.Module):
             return
 
         for k, v in self.outputs.items():
-            L.log_histogram('train_actor/%s_hist' % k, v, step)
+            L.log_histogram("train_actor/%s_hist" % k, v, step)
 
-        L.log_param('train_actor/fc1', self.trunk[0], step)
-        L.log_param('train_actor/fc2', self.trunk[2], step)
-        L.log_param('train_actor/fc3', self.trunk[4], step)
+        L.log_param("train_actor/fc1", self.trunk[0], step)
+        L.log_param("train_actor/fc2", self.trunk[2], step)
+        L.log_param("train_actor/fc3", self.trunk[4], step)
 
 
 class QFunction(nn.Module):
     """MLP for q-function."""
+
     def __init__(self, obs_dim, action_dim, hidden_dim):
         super().__init__()
 
         self.trunk = nn.Sequential(
-            nn.Linear(obs_dim + action_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
+            nn.Linear(obs_dim + action_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1),
         )
 
     def forward(self, obs, action):
@@ -138,23 +155,31 @@ class QFunction(nn.Module):
 
 class Critic(nn.Module):
     """Critic network, employes two q-functions."""
+
     def __init__(
-        self, obs_shape, action_shape, hidden_dim, encoder_type,
-        encoder_feature_dim, num_layers, num_filters, stride
+        self,
+        obs_shape,
+        action_shape,
+        hidden_dim,
+        encoder_type,
+        encoder_feature_dim,
+        num_layers,
+        num_filters,
+        stride,
     ):
         super().__init__()
 
         self.encoder = make_encoder(
-            encoder_type, obs_shape, encoder_feature_dim, num_layers,
-            num_filters, stride
+            encoder_type,
+            obs_shape,
+            encoder_feature_dim,
+            num_layers,
+            num_filters,
+            stride,
         )
 
-        self.Q1 = QFunction(
-            self.encoder.feature_dim, action_shape[0], hidden_dim
-        )
-        self.Q2 = QFunction(
-            self.encoder.feature_dim, action_shape[0], hidden_dim
-        )
+        self.Q1 = QFunction(self.encoder.feature_dim, action_shape[0], hidden_dim)
+        self.Q2 = QFunction(self.encoder.feature_dim, action_shape[0], hidden_dim)
 
         self.outputs = dict()
         self.apply(weight_init)
@@ -166,8 +191,8 @@ class Critic(nn.Module):
         q1 = self.Q1(obs, action)
         q2 = self.Q2(obs, action)
 
-        self.outputs['q1'] = q1
-        self.outputs['q2'] = q2
+        self.outputs["q1"] = q1
+        self.outputs["q2"] = q2
 
         return q1, q2
 
@@ -178,11 +203,8 @@ class Critic(nn.Module):
         self.encoder.log(L, step, log_freq)
 
         for k, v in self.outputs.items():
-            L.log_histogram('train_critic/%s_hist' % k, v, step)
+            L.log_histogram("train_critic/%s_hist" % k, v, step)
 
         for i in range(3):
-            L.log_param('train_critic/q1_fc%d' % i, self.Q1.trunk[i * 2], step)
-            L.log_param('train_critic/q2_fc%d' % i, self.Q2.trunk[i * 2], step)
-
-
-
+            L.log_param("train_critic/q1_fc%d" % i, self.Q1.trunk[i * 2], step)
+            L.log_param("train_critic/q2_fc%d" % i, self.Q2.trunk[i * 2], step)
