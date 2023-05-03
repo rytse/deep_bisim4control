@@ -15,7 +15,7 @@ import scipy.interpolate
 def read_log_file(file_name, key_name, value_name, smooth=3):
     keys, values = [], []
     try:
-        with open(file_name, 'r') as f:
+        with open(file_name, "r") as f:
             for line in f:
                 try:
                     e = json.loads(line.strip())
@@ -25,13 +25,13 @@ def read_log_file(file_name, key_name, value_name, smooth=3):
                 except:
                     pass
     except:
-        print('bad file: %s' % file_name)
+        print("bad file: %s" % file_name)
         return None, None
     keys, values = np.array(keys), np.array(values)
     if smooth > 1 and values.shape[0] > 0:
         K = np.ones(smooth)
         ones = np.ones(values.shape[0])
-        values = np.convolve(values, K, 'same') / np.convolve(ones, K, 'same')
+        values = np.convolve(values, K, "same") / np.convolve(ones, K, "same")
 
     return keys, values
 
@@ -43,7 +43,7 @@ def parse_log_files(
     num_seeds,
     smooth,
     best_k=None,
-    max_key=True
+    max_key=True,
 ):
     all_values = []
     all_keys = []
@@ -63,9 +63,9 @@ def parse_log_files(
     keys = all_keys_tmp[-1] if max_key else all_keys_tmp[0]
     threshold = keys.shape[0]
 
-    # interpolate    
+    # interpolate
     for idx, (key, value) in enumerate(zip(all_keys, all_values)):
-        f = scipy.interpolate.interp1d(key, value, fill_value='extrapolate')
+        f = scipy.interpolate.interp1d(key, value, fill_value="extrapolate")
         all_keys[idx] = keys
         all_values[idx] = f(keys)
 
@@ -99,15 +99,15 @@ def print_result(
     num_seeds=1,
     smooth=3,
     train=False,
-    key_name='step',
-    value_name='episode_reward',
+    key_name="step",
+    value_name="episode_reward",
     max_time=None,
     best_k=None,
     timescale=1,
-    max_key=False
+    max_key=False,
 ):
-    file_name = 'train.log' if train else 'eval.log'
-    file_name_template = os.path.join(root, 'seed_%d', file_name)
+    file_name = "train.log" if train else "eval.log"
+    file_name_template = os.path.join(root, "seed_%d", file_name)
     keys, means, half_stds = parse_log_files(
         file_name_template,
         key_name,
@@ -115,9 +115,9 @@ def print_result(
         num_seeds,
         smooth=smooth,
         best_k=best_k,
-        max_key=max_key
+        max_key=max_key,
     )
-    label = label or root.split('/')[-1]
+    label = label or root.split("/")[-1]
     if keys is None:
         return
 
@@ -130,21 +130,19 @@ def print_result(
     keys *= timescale
 
     plt.plot(keys, means, label=label)
-    plt.locator_params(nbins=10, axis='x')
-    plt.locator_params(nbins=10, axis='y')
-    plt.rcParams['figure.figsize'] = (10, 7)
-    plt.rcParams['figure.dpi'] = 100
-    plt.rcParams['font.size'] = 10
+    plt.locator_params(nbins=10, axis="x")
+    plt.locator_params(nbins=10, axis="y")
+    plt.rcParams["figure.figsize"] = (10, 7)
+    plt.rcParams["figure.dpi"] = 100
+    plt.rcParams["font.size"] = 10
     plt.subplots_adjust(left=0.165, right=0.99, bottom=0.16, top=0.95)
-    #plt.ylim(0, 1050)
+    # plt.ylim(0, 1050)
     plt.tight_layout()
 
     plt.grid(alpha=0.8)
     plt.title(title)
     plt.fill_between(keys, means - half_stds, means + half_stds, alpha=0.2)
-    plt.legend(loc='lower right', prop={
-        'size': 6
-    }).get_frame().set_edgecolor('0.1')
+    plt.legend(loc="lower right", prop={"size": 6}).get_frame().set_edgecolor("0.1")
     plt.xlabel(key_name)
     plt.ylabel(value_name)
 
@@ -155,9 +153,9 @@ def plot_seeds(
     root,
     train=True,
     smooth=3,
-    key_name='step',
-    value_name='episode_reward',
-    num_seeds=10
+    key_name="step",
+    value_name="episode_reward",
+    num_seeds=10,
 ):
     # root = os.path.join(root, task)
     experiment = None
@@ -167,14 +165,14 @@ def plot_seeds(
             break
     if experiment is None:
         return
-    file_name = 'train.log' if train else 'eval.log'
-    file_name_template = os.path.join(experiment, 'seed_%d', file_name)
+    file_name = "train.log" if train else "eval.log"
+    file_name_template = os.path.join(experiment, "seed_%d", file_name)
 
-    plt.locator_params(nbins=10, axis='x')
-    plt.locator_params(nbins=10, axis='y')
-    plt.rcParams['figure.figsize'] = (10, 7)
-    plt.rcParams['figure.dpi'] = 100
-    plt.rcParams['font.size'] = 10
+    plt.locator_params(nbins=10, axis="x")
+    plt.locator_params(nbins=10, axis="y")
+    plt.rcParams["figure.figsize"] = (10, 7)
+    plt.rcParams["figure.dpi"] = 100
+    plt.rcParams["font.size"] = 10
     plt.subplots_adjust(left=0.165, right=0.99, bottom=0.16, top=0.95)
     plt.grid(alpha=0.8)
     plt.tight_layout()
@@ -189,11 +187,9 @@ def plot_seeds(
         if keys is None or keys.shape[0] == 0:
             continue
 
-        plt.plot(keys, values, label='seed_%d' % seed, linewidth=0.5)
+        plt.plot(keys, values, label="seed_%d" % seed, linewidth=0.5)
 
-    plt.legend(loc='lower right', prop={
-        'size': 6
-    }).get_frame().set_edgecolor('0.1')
+    plt.legend(loc="lower right", prop={"size": 6}).get_frame().set_edgecolor("0.1")
 
 
 def print_baseline(task, baseline, data, color):
@@ -202,14 +198,12 @@ def print_baseline(task, baseline, data, color):
     except:
         return
 
-    plt.axhline(y=value, label=baseline, linestyle='--', color=color)
-    plt.legend(loc='lower right', prop={
-        'size': 6
-    }).get_frame().set_edgecolor('0.1')
+    plt.axhline(y=value, label=baseline, linestyle="--", color=color)
+    plt.legend(loc="lower right", prop={"size": 6}).get_frame().set_edgecolor("0.1")
 
 
 def print_planet_baseline(
-    task, data, max_time=None, label='planet', color='black', offset=0
+    task, data, max_time=None, label="planet", color="black", offset=0
 ):
     try:
         keys, means, half_stds = data[task]
@@ -224,27 +218,21 @@ def print_planet_baseline(
 
     plt.plot(keys + offset, means, label=label, color=color)
     plt.fill_between(
-        keys + offset,
-        means - half_stds,
-        means + half_stds,
-        alpha=0.2,
-        color=color
+        keys + offset, means - half_stds, means + half_stds, alpha=0.2, color=color
     )
-    plt.legend(loc='lower right', prop={
-        'size': 6
-    }).get_frame().set_edgecolor('0.1')
+    plt.legend(loc="lower right", prop={"size": 6}).get_frame().set_edgecolor("0.1")
 
 
 def plot_experiment(
     task,
     exp_query,
     neg_exp_query=None,
-    root='runs',
+    root="runs",
     exp_ids=None,
     smooth=3,
     train=False,
-    key_name='step',
-    value_name='eval_episode_reward',
+    key_name="step",
+    value_name="eval_episode_reward",
     baselines_data=None,
     num_seeds=10,
     planet_data=None,
@@ -252,13 +240,15 @@ def plot_experiment(
     max_time=None,
     best_k=None,
     timescale=1,
-    max_key=False
+    max_key=False,
 ):
     root = os.path.join(root, task)
 
     experiments = set()
     for exp in os.listdir(root):
-        if re.match(exp_query, exp) and (neg_exp_query is None or re.match(neg_exp_query, exp) is None):
+        if re.match(exp_query, exp) and (
+            neg_exp_query is None or re.match(neg_exp_query, exp) is None
+        ):
             exp = os.path.join(root, exp)
             experiments.add(exp)
 
@@ -276,38 +266,33 @@ def plot_experiment(
                 max_time=max_time,
                 best_k=best_k,
                 timescale=timescale,
-                max_key=max_key
+                max_key=max_key,
             )
 
     if baselines_data is not None:
-        print_baseline(task, 'd4pg_pixels', baselines_data, color='gray')
-        print_baseline(task, 'd4pg', baselines_data, color='black')
+        print_baseline(task, "d4pg_pixels", baselines_data, color="gray")
+        print_baseline(task, "d4pg", baselines_data, color="black")
 
     if planet_data is not None:
         print_planet_baseline(
-            task,
-            planet_data,
-            max_time=max_time,
-            label='planet',
-            color='peru',
-            offset=5
+            task, planet_data, max_time=max_time, label="planet", color="peru", offset=5
         )
 
     if slac_data is not None:
         action_repeat = {
-            'ball_in_cup_catch': 4,
-            'cartpole_swingup': 8,
-            'cheetah_run': 4,
-            'finger_spin': 2,
-            'walker_walk': 2,
-            'reacher_easy': 4
+            "ball_in_cup_catch": 4,
+            "cartpole_swingup": 8,
+            "cheetah_run": 4,
+            "finger_spin": 2,
+            "walker_walk": 2,
+            "reacher_easy": 4,
         }
         offset = 10 * action_repeat[task]
         print_planet_baseline(
             task,
             slac_data,
             max_time=max_time,
-            label='slac',
-            color='black',
-            offset=offset
+            label="slac",
+            color="black",
+            offset=offset,
         )

@@ -18,34 +18,34 @@ import utils
 
 
 args = parse_args()
-args.domain_name = 'walker'
-args.task_name = 'walk'
+args.domain_name = "walker"
+args.task_name = "walk"
 args.image_size = 84
 args.seed = 1
-args.agent = 'bisim'
-args.encoder_type = 'pixel'
+args.agent = "bisim"
+args.encoder_type = "pixel"
 args.action_repeat = 2
-args.img_source = 'video'
+args.img_source = "video"
 args.num_layers = 4
 args.num_filters = 32
 args.hidden_dim = 1024
-args.resource_files = '/datasets01/kinetics/070618/400/train/driving_car/*.mp4'
+args.resource_files = "/datasets01/kinetics/070618/400/train/driving_car/*.mp4"
 args.total_frames = 5000
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class VAE(nn.Module):
     def __init__(self, obs_shape):
         super().__init__()
         self.encoder = make_encoder(
-            encoder_type='pixel', 
-            obs_shape=obs_shape, 
-            feature_dim=100, 
-            num_layers=4, 
-            num_filters=32).to(device)
-        
-        self.decoder = make_decoder(
-                'pixel', obs_shape, 50, 4, 32).to(device)
+            encoder_type="pixel",
+            obs_shape=obs_shape,
+            feature_dim=100,
+            num_layers=4,
+            num_filters=32,
+        ).to(device)
+
+        self.decoder = make_decoder("pixel", obs_shape, 50, 4, 32).to(device)
         self.decoder.apply(weight_init)
 
     def train(self, obs):
@@ -54,7 +54,7 @@ class VAE(nn.Module):
         eps = torch.randn_like(mu)
         reparam = mu + torch.exp(log_var / 2) * eps
         rec_obs = torch.sigmoid(self.decoder(reparam))
-        BCE = F.binary_cross_entropy(rec_obs, obs / 255, reduction='sum')
+        BCE = F.binary_cross_entropy(rec_obs, obs / 255, reduction="sum")
         KLD = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
         loss = BCE + KLD
         return loss
@@ -68,16 +68,18 @@ env = dmc2gym.make(
     total_frames=10,
     seed=args.seed,
     visualize_reward=False,
-    from_pixels=(args.encoder_type == 'pixel'),
+    from_pixels=(args.encoder_type == "pixel"),
     height=args.image_size,
     width=args.image_size,
-    frame_skip=args.action_repeat
+    frame_skip=args.action_repeat,
 )
 env = utils.FrameStack(env, k=args.frame_stack)
 vae = VAE(env.observation_space.shape)
-train_dataset = torch.load('train_dataset.pt')
+train_dataset = torch.load("train_dataset.pt")
 optimizer = torch.optim.Adam(vae.parameters(), lr=1e-3)
-train_loader = torch.utils.data.DataLoader(train_dataset['obs'], batch_size=32, shuffle=True)
+train_loader = torch.utils.data.DataLoader(
+    train_dataset["obs"], batch_size=32, shuffle=True
+)
 
 # training loop
 for i in range(100):
@@ -91,7 +93,7 @@ for i in range(100):
 
     print(np.mean(total_loss), i)
 
-dataset = torch.load('dataset.pt')
+dataset = torch.load("dataset.pt")
 with torch.no_grad():
-    embeddings = vae.encoder(torch.FloatTensor(dataset['obs']).to(device)).cpu().numpy()
-torch.save(embeddings, 'vae_embeddings.pt')
+    embeddings = vae.encoder(torch.FloatTensor(dataset["obs"]).to(device)).cpu().numpy()
+torch.save(embeddings, "vae_embeddings.pt")

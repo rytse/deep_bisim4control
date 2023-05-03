@@ -28,25 +28,24 @@ from dm_control.rl import control
 
 
 class LoaderTest(absltest.TestCase):
+    def test_load_without_kwargs(self):
+        env = suite.load("cartpole", "swingup")
+        self.assertIsInstance(env, control.Environment)
 
-  def test_load_without_kwargs(self):
-    env = suite.load('cartpole', 'swingup')
-    self.assertIsInstance(env, control.Environment)
-
-  def test_load_with_kwargs(self):
-    env = suite.load('cartpole', 'swingup',
-                     task_kwargs={'time_limit': 40, 'random': 99})
-    self.assertIsInstance(env, control.Environment)
+    def test_load_with_kwargs(self):
+        env = suite.load(
+            "cartpole", "swingup", task_kwargs={"time_limit": 40, "random": 99}
+        )
+        self.assertIsInstance(env, control.Environment)
 
 
 class LoaderConstantsTest(absltest.TestCase):
+    def testSuiteConstants(self):
+        self.assertNotEmpty(suite.BENCHMARKING)
+        self.assertNotEmpty(suite.EASY)
+        self.assertNotEmpty(suite.HARD)
+        self.assertNotEmpty(suite.EXTRA)
 
-  def testSuiteConstants(self):
-    self.assertNotEmpty(suite.BENCHMARKING)
-    self.assertNotEmpty(suite.EASY)
-    self.assertNotEmpty(suite.HARD)
-    self.assertNotEmpty(suite.EXTRA)
 
-
-if __name__ == '__main__':
-  absltest.main()
+if __name__ == "__main__":
+    absltest.main()

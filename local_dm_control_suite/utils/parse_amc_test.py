@@ -30,39 +30,38 @@ from dm_control.suite.utils import parse_amc
 from dm_control.utils import io as resources
 
 _TEST_AMC_PATH = resources.GetResourceFilename(
-    os.path.join(os.path.dirname(__file__), '../demos/zeros.amc'))
+    os.path.join(os.path.dirname(__file__), "../demos/zeros.amc")
+)
 
 
 class ParseAMCTest(absltest.TestCase):
+    def test_sizes_of_parsed_data(self):
+        # Instantiate the humanoid environment.
+        env = humanoid_CMU.stand()
 
-  def test_sizes_of_parsed_data(self):
+        # Parse and convert specified clip.
+        converted = parse_amc.convert(
+            _TEST_AMC_PATH, env.physics, env.control_timestep()
+        )
 
-    # Instantiate the humanoid environment.
-    env = humanoid_CMU.stand()
+        self.assertEqual(converted.qpos.shape[0], 63)
+        self.assertEqual(converted.qvel.shape[0], 62)
+        self.assertEqual(converted.time.shape[0], converted.qpos.shape[1])
+        self.assertEqual(converted.qpos.shape[1], converted.qvel.shape[1] + 1)
 
-    # Parse and convert specified clip.
-    converted = parse_amc.convert(
-        _TEST_AMC_PATH, env.physics, env.control_timestep())
+        # Parse and convert specified clip -- WITH SMALLER TIMESTEP
+        converted2 = parse_amc.convert(
+            _TEST_AMC_PATH, env.physics, 0.5 * env.control_timestep()
+        )
 
-    self.assertEqual(converted.qpos.shape[0], 63)
-    self.assertEqual(converted.qvel.shape[0], 62)
-    self.assertEqual(converted.time.shape[0], converted.qpos.shape[1])
-    self.assertEqual(converted.qpos.shape[1],
-                     converted.qvel.shape[1] + 1)
+        self.assertEqual(converted2.qpos.shape[0], 63)
+        self.assertEqual(converted2.qvel.shape[0], 62)
+        self.assertEqual(converted2.time.shape[0], converted2.qpos.shape[1])
+        self.assertEqual(converted.qpos.shape[1], converted.qvel.shape[1] + 1)
 
-    # Parse and convert specified clip -- WITH SMALLER TIMESTEP
-    converted2 = parse_amc.convert(
-        _TEST_AMC_PATH, env.physics, 0.5 * env.control_timestep())
-
-    self.assertEqual(converted2.qpos.shape[0], 63)
-    self.assertEqual(converted2.qvel.shape[0], 62)
-    self.assertEqual(converted2.time.shape[0], converted2.qpos.shape[1])
-    self.assertEqual(converted.qpos.shape[1],
-                     converted.qvel.shape[1] + 1)
-
-    # Compare sizes of parsed objects for different timesteps
-    self.assertEqual(converted.qpos.shape[1] * 2, converted2.qpos.shape[1])
+        # Compare sizes of parsed objects for different timesteps
+        self.assertEqual(converted.qpos.shape[1] * 2, converted2.qpos.shape[1])
 
 
-if __name__ == '__main__':
-  absltest.main()
+if __name__ == "__main__":
+    absltest.main()
