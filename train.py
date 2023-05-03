@@ -24,6 +24,8 @@ from agents.navigation.carla_env import CarlaEnv
 
 # os.environ["MUJOCO_GL"] = "osmesa"
 
+torch.set_float32_matmul_precision("high")
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -396,6 +398,9 @@ def main():
         json.dump(vars(args), f, sort_keys=True, indent=4)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("\n\n")
+    print(f"USING DEVICE: {device}")
+    print("\n\n")
 
     # the dmc2gym wrapper standardizes actions
     assert env.action_space.low.min() >= -1

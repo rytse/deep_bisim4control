@@ -145,12 +145,10 @@ class PixelLSTMEncoder(PixelEncoder):
 
     def __init__(
         self,
-        obs_shape,
-        feature_dim,
-        lstm_in_size=256,
-        lstm_hidden_size=256,
-        fc2_hidden_size=128,
-        num_layers=2,
+        obs_shape: "tuple[int]",
+        feature_dim: int,
+        hidden_size: int = 128,
+        num_layers: int = 2,
     ):
         super(PixelEncoder, self).__init__()
 
@@ -174,37 +172,42 @@ class PixelLSTMEncoder(PixelEncoder):
         cnn_out_shape = self.cnn(torch.zeros((1,) + obs_shape)[:, 0, ...]).shape
         n_pixels = cnn_out_shape[1] * cnn_out_shape[2]
 
-        self.fc1 = nn.Linear(n_pixels, lstm_in_size)
-        self.lstm = nn.LSTM(
-            input_size=lstm_in_size, hidden_size=lstm_hidden_size, num_layers=3
-        )
-        self.fc2 = nn.Sequential(
-            nn.Linear(lstm_hidden_size, fc2_hidden_size),
-            nn.ReLU(),
-            nn.Linear(fc2_hidden_size, feature_dim),
-        )
+        self.lstm = nn.LSTM(input_size=n_pixels, hidden_size=hidden_size, num_layers=3)
+        self.fc = nn.Linear(hidden_size, feature_dim)
         self.ln = nn.LayerNorm(self.feature_dim)
 
-    def forward(self, x: torch.Tensor, detach: bool = False):
+        self.outputs = dict()
+
+    def forward(self, obs: torch.Tensor, detach: bool = False) -> torch.Tensor:
         # TODO do this non-recursively so that the compiler can do its job
         # To do this, inspect the size of these outputs
+
+        x = obs / 255.0
+        self.outputs["obs"] = x
 
         # x will have shape (batch_size, stack_depth, pixel_width, pixel_height)
         lstm_out = None
         lstm_hidden = None
         for fidx in range(x.shape[1]):
             cnn_out = self.cnn(x[:, fidx, ...].unsqueeze(1))
-            fc1_out = self.fc1(cnn_out.flatten(1))
-            lstm_out, lstm_hidden = self.lstm(fc1_out, lstm_hidden)
+            self.outputs[f"conv{fidx + 1}"] = cnn_out
+            lstm_out, lstm_hidden = self.lstm(cnn_out.flatten(1), lstm_hidden)
 
-        if detach:
+        if detach and isinstance(lstm_out, torch.Tensor):
             lstm_out = lstm_out.detach()
 
-        return self.ln(self.fc2(lstm_out))
+        fc_out = self.fc(lstm_out)
+        self.outputs["fc"] = fc_out
+        ln_out = self.ln(fc_out)
+        self.outputs["ln"] = ln_out
 
-    # def copy_conv_weights_from(self, source: "PixelLSTMEncoder"):
-    # tie_weights(src=source.cnn, trg=self.cnn)
-    # tie_weights(src=source.lstm, trg=self.lstm)
+        return ln_out
+
+    def copy_conv_weights_from(self, source: "PixelLSTMEncoder"):
+        for i in range(self.num_layers):
+            tie_weights(src=source.convs[i], trg=self.convs[i])
+        for w_src, w_self in zip(source.lstm.parameters(), self.lstm.parameters()):
+            w_self.data.copy_(w_src.data)
 
 
 class IdentityEncoder(nn.Module):
@@ -239,6 +242,9 @@ def make_encoder(encoder_type, obs_shape, feature_dim, num_layers, num_filters, 
     if encoder_type == "pixelLstm":
         return PixelLSTMEncoder(obs_shape, feature_dim)
 
-    return _AVAILABLE_ENCODERS[encoder_type](
-        obs_shape, feature_dim, num_layers, num_filters, stride
+    return torch.compile(
+        _AVAILABLE_ENCODERS[encoder_type](
+            obs_shape, feature_dim, num_layers, num_filters, stride
+        ),
+        mode="reduce-overhead",
     )

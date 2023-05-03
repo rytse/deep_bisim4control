@@ -38,6 +38,22 @@ def weight_init(m):
     if isinstance(m, nn.Linear):
         nn.init.orthogonal_(m.weight.data)
         m.bias.data.fill_(0.0)
+    elif isinstance(m, nn.LSTM):
+        for name, p in m.named_parameters():
+            if "lstm" in name:
+                if "weight_ih" in name:
+                    nn.init.xavier_uniform_(p.data)
+                elif "weight_hh" in name:
+                    nn.init.orthogonal_(p.data)
+                elif "bias_ih" in name:
+                    p.data.fill_(0)
+                    n = p.size(0)
+                    p.data[(n // 4) : (n // 2)].fill_(1)  # forget-gate bias
+            elif "fc" in name:
+                if "weight" in name:
+                    nn.init.xavier_uniform_(p.data)
+                elif "bias" in name:
+                    p.data.fill_(0)
     elif isinstance(m, nn.Conv2d) or isinstance(m, nn.ConvTranspose2d):
         # delta-orthogonal init from https://arxiv.org/pdf/1806.05393.pdf
         assert m.weight.size(2) == m.weight.size(3)
