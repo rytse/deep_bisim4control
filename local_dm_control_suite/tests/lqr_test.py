@@ -19,7 +19,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import  math
+import math
 import unittest
 
 # Internal dependencies.
@@ -36,53 +36,52 @@ from six.moves import range
 
 
 class LqrTest(parameterized.TestCase):
+    @parameterized.named_parameters(("lqr_2_1", lqr.lqr_2_1), ("lqr_6_2", lqr.lqr_6_2))
+    def test_lqr_optimal_policy(self, make_env):
+        env = make_env()
+        p, k, beta = lqr_solver.solve(env)
+        self.assertPolicyisOptimal(env, p, k, beta)
 
-  @parameterized.named_parameters(
-      ('lqr_2_1', lqr.lqr_2_1),
-      ('lqr_6_2', lqr.lqr_6_2))
-  def test_lqr_optimal_policy(self, make_env):
-    env = make_env()
-    p, k, beta = lqr_solver.solve(env)
-    self.assertPolicyisOptimal(env, p, k, beta)
+    @parameterized.named_parameters(("lqr_2_1", lqr.lqr_2_1), ("lqr_6_2", lqr.lqr_6_2))
+    @unittest.skipUnless(
+        condition=lqr_solver.sp,
+        reason="scipy is not available, so non-scipy DARE solver is the default.",
+    )
+    def test_lqr_optimal_policy_no_scipy(self, make_env):
+        env = make_env()
+        old_sp = lqr_solver.sp
+        try:
+            lqr_solver.sp = None  # Force the solver to use the non-scipy code path.
+            p, k, beta = lqr_solver.solve(env)
+        finally:
+            lqr_solver.sp = old_sp
+        self.assertPolicyisOptimal(env, p, k, beta)
 
-  @parameterized.named_parameters(
-      ('lqr_2_1', lqr.lqr_2_1),
-      ('lqr_6_2', lqr.lqr_6_2))
-  @unittest.skipUnless(
-      condition=lqr_solver.sp,
-      reason='scipy is not available, so non-scipy DARE solver is the default.')
-  def test_lqr_optimal_policy_no_scipy(self, make_env):
-    env = make_env()
-    old_sp = lqr_solver.sp
-    try:
-      lqr_solver.sp = None  # Force the solver to use the non-scipy code path.
-      p, k, beta = lqr_solver.solve(env)
-    finally:
-      lqr_solver.sp = old_sp
-    self.assertPolicyisOptimal(env, p, k, beta)
+    def assertPolicyisOptimal(self, env, p, k, beta):
+        tolerance = 1e-3
+        n_steps = int(math.ceil(math.log10(tolerance) / math.log10(beta)))
+        logging.info("%d timesteps for %g convergence.", n_steps, tolerance)
+        total_loss = 0.0
 
-  def assertPolicyisOptimal(self, env, p, k, beta):
-    tolerance = 1e-3
-    n_steps = int(math.ceil(math.log10(tolerance) / math.log10(beta)))
-    logging.info('%d timesteps for %g convergence.', n_steps, tolerance)
-    total_loss = 0.0
+        timestep = env.reset()
+        initial_state = np.hstack(
+            (timestep.observation["position"], timestep.observation["velocity"])
+        )
+        logging.info("Measuring total cost over %d steps.", n_steps)
+        for _ in range(n_steps):
+            x = np.hstack(
+                (timestep.observation["position"], timestep.observation["velocity"])
+            )
+            # u = k*x is the optimal policy
+            u = k.dot(x)
+            total_loss += 1 - (timestep.reward or 0.0)
+            timestep = env.step(u)
 
-    timestep = env.reset()
-    initial_state = np.hstack((timestep.observation['position'],
-                               timestep.observation['velocity']))
-    logging.info('Measuring total cost over %d steps.', n_steps)
-    for _ in range(n_steps):
-      x = np.hstack((timestep.observation['position'],
-                     timestep.observation['velocity']))
-      # u = k*x is the optimal policy
-      u = k.dot(x)
-      total_loss += 1 - (timestep.reward or 0.0)
-      timestep = env.step(u)
+        logging.info("Analytical expected total cost is .5*x^T*p*x.")
+        expected_loss = 0.5 * initial_state.T.dot(p).dot(initial_state)
+        logging.info("Comparing measured and predicted costs.")
+        np.testing.assert_allclose(expected_loss, total_loss, rtol=tolerance)
 
-    logging.info('Analytical expected total cost is .5*x^T*p*x.')
-    expected_loss = .5 * initial_state.T.dot(p).dot(initial_state)
-    logging.info('Comparing measured and predicted costs.')
-    np.testing.assert_allclose(expected_loss, total_loss, rtol=tolerance)
 
-if __name__ == '__main__':
-  absltest.main()
+if __name__ == "__main__":
+    absltest.main()

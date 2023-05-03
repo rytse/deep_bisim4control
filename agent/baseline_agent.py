@@ -10,13 +10,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import utils
-from sac_ae import  Actor, Critic, weight_init, LOG_FREQ
+from sac_ae import Actor, Critic, weight_init, LOG_FREQ
 from transition_model import make_transition_model
 from decoder import make_decoder
 
 
 class BaselineAgent(object):
     """Baseline algorithm with transition model and various decoder types."""
+
     def __init__(
         self,
         obs_shape,
@@ -36,18 +37,18 @@ class BaselineAgent(object):
         critic_beta=0.9,
         critic_tau=0.005,
         critic_target_update_freq=2,
-        encoder_type='pixel',
+        encoder_type="pixel",
         encoder_stride=2,
         encoder_feature_dim=50,
         encoder_lr=1e-3,
         encoder_tau=0.005,
-        decoder_type='pixel',
+        decoder_type="pixel",
         decoder_lr=1e-3,
         decoder_update_freq=1,
         decoder_weight_lambda=0.0,
-        transition_model_type='deterministic',
+        transition_model_type="deterministic",
         num_layers=4,
-        num_filters=32
+        num_filters=32,
     ):
         self.device = device
         self.discount = discount
@@ -57,23 +58,42 @@ class BaselineAgent(object):
         self.critic_target_update_freq = critic_target_update_freq
         self.decoder_update_freq = decoder_update_freq
         self.decoder_type = decoder_type
-        self.hinge = 1.
+        self.hinge = 1.0
         self.sigma = 0.5
 
         self.actor = Actor(
-            obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, actor_log_std_min, actor_log_std_max,
-            num_layers, num_filters, encoder_stride
+            obs_shape,
+            action_shape,
+            hidden_dim,
+            encoder_type,
+            encoder_feature_dim,
+            actor_log_std_min,
+            actor_log_std_max,
+            num_layers,
+            num_filters,
+            encoder_stride,
         ).to(device)
 
         self.critic = Critic(
-            obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride
+            obs_shape,
+            action_shape,
+            hidden_dim,
+            encoder_type,
+            encoder_feature_dim,
+            num_layers,
+            num_filters,
+            encoder_stride,
         ).to(device)
 
         self.critic_target = Critic(
-            obs_shape, action_shape, hidden_dim, encoder_type,
-            encoder_feature_dim, num_layers, num_filters, encoder_stride
+            obs_shape,
+            action_shape,
+            hidden_dim,
+            encoder_type,
+            encoder_feature_dim,
+            num_layers,
+            num_filters,
+            encoder_stride,
         ).to(device)
 
         self.critic_target.load_state_dict(self.critic.state_dict())
@@ -86,7 +106,7 @@ class BaselineAgent(object):
         self.decoder_optimizer = torch.optim.Adam(
             self.transition_model.parameters(),
             lr=decoder_lr,
-            weight_decay=decoder_weight_lambda
+            weight_decay=decoder_weight_lambda,
         )
 
         # tie encoders between actor and critic
@@ -98,29 +118,31 @@ class BaselineAgent(object):
         self.target_entropy = -np.prod(action_shape)
 
         self.decoder = None
-        encoder_params = list(self.critic.encoder.parameters()) + list(self.transition_model.parameters())
-        if decoder_type == 'pixel':
+        encoder_params = list(self.critic.encoder.parameters()) + list(
+            self.transition_model.parameters()
+        )
+        if decoder_type == "pixel":
             # create decoder
             self.decoder = make_decoder(
-                decoder_type, obs_shape, encoder_feature_dim, num_layers,
-                num_filters
+                decoder_type, obs_shape, encoder_feature_dim, num_layers, num_filters
             ).to(device)
             self.decoder.apply(weight_init)
-        elif decoder_type == 'inverse':
+        elif decoder_type == "inverse":
             self.inverse_model = nn.Sequential(
                 nn.Linear(encoder_feature_dim * 2, 512),
                 nn.LayerNorm(512),
                 nn.ReLU(),
-                nn.Linear(512, action_shape[0])).to(device)
+                nn.Linear(512, action_shape[0]),
+            ).to(device)
             encoder_params += list(self.inverse_model.parameters())
-        if decoder_type != 'identity':
+        if decoder_type != "identity":
             # optimizer for critic encoder for reconstruction loss
             self.encoder_optimizer = torch.optim.Adam(encoder_params, lr=encoder_lr)
-        if decoder_type == 'pixel':  # optimizer for decoder
+        if decoder_type == "pixel":  # optimizer for decoder
             self.decoder_optimizer = torch.optim.Adam(
                 self.decoder.parameters(),
                 lr=decoder_lr,
-                weight_decay=decoder_weight_lambda
+                weight_decay=decoder_weight_lambda,
             )
             # optimizer for critic encoder for reconstruction loss
             self.encoder_optimizer = torch.optim.Adam(
@@ -150,11 +172,13 @@ class BaselineAgent(object):
 
         if no_trans:
             diff = state - next_state
-            normalization = 0.
+            normalization = 0.0
         else:
-            pred_trans_mu, pred_trans_sigma = self.transition_model(torch.cat([state, action], dim=1))
+            pred_trans_mu, pred_trans_sigma = self.transition_model(
+                torch.cat([state, action], dim=1)
+            )
             if pred_trans_sigma is None:
-                pred_trans_sigma = torch.Tensor([1.]).to(self.device)
+                pred_trans_sigma = torch.Tensor([1.0]).to(self.device)
             if isinstance(pred_trans_mu, list):  # i.e. comes from an ensemble
                 raise NotImplementedError  # TODO: handle the additional ensemble dimension (0) in this case
             diff = (state + pred_trans_mu - next_state) / pred_trans_sigma
@@ -162,7 +186,6 @@ class BaselineAgent(object):
         return norm * (diff.pow(2) + normalization).sum(1)
 
     def contrastive_loss(self, state, action, next_state):
-
         # Sample negative state across episodes at random
         batch_size = state.size(0)
         perm = np.random.permutation(batch_size)
@@ -173,8 +196,8 @@ class BaselineAgent(object):
 
         self.pos_loss = self.pos_loss.mean()
         self.neg_loss = torch.max(
-            zeros, self.hinge - self.energy(
-                state, action, neg_state, no_trans=True)).mean()
+            zeros, self.hinge - self.energy(state, action, neg_state, no_trans=True)
+        ).mean()
 
         loss = self.pos_loss + self.neg_loss
 
@@ -195,9 +218,7 @@ class BaselineAgent(object):
         with torch.no_grad():
             obs = torch.FloatTensor(obs).to(self.device)
             obs = obs.unsqueeze(0)
-            mu, _, _, _ = self.actor(
-                obs, compute_pi=False, compute_log_pi=False
-            )
+            mu, _, _, _ = self.actor(obs, compute_pi=False, compute_log_pi=False)
             return mu.cpu().data.numpy().flatten()
 
     def sample_action(self, obs):
@@ -211,15 +232,15 @@ class BaselineAgent(object):
         with torch.no_grad():
             _, policy_action, log_pi, _ = self.actor(next_obs)
             target_Q1, target_Q2 = self.critic_target(next_obs, policy_action)
-            target_V = torch.min(target_Q1,
-                                 target_Q2) - self.alpha.detach() * log_pi
+            target_V = torch.min(target_Q1, target_Q2) - self.alpha.detach() * log_pi
             target_Q = reward + (not_done * self.discount * target_V)
 
         # get current Q estimates
         current_Q1, current_Q2 = self.critic(obs, action, detach_encoder=False)
-        critic_loss = F.mse_loss(current_Q1,
-                                 target_Q) + F.mse_loss(current_Q2, target_Q)
-        L.log('train_critic/loss', critic_loss, step)
+        critic_loss = F.mse_loss(current_Q1, target_Q) + F.mse_loss(
+            current_Q2, target_Q
+        )
+        L.log("train_critic/loss", critic_loss, step)
 
         # Optimize the critic
         self.critic_optimizer.zero_grad()
@@ -236,11 +257,12 @@ class BaselineAgent(object):
         actor_Q = torch.min(actor_Q1, actor_Q2)
         actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
 
-        L.log('train_actor/loss', actor_loss, step)
-        L.log('train_actor/target_entropy', self.target_entropy, step)
-        entropy = 0.5 * log_std.shape[1] * (1.0 + np.log(2 * np.pi)
-                                            ) + log_std.sum(dim=-1)
-        L.log('train_actor/entropy', entropy.mean(), step)
+        L.log("train_actor/loss", actor_loss, step)
+        L.log("train_actor/target_entropy", self.target_entropy, step)
+        entropy = 0.5 * log_std.shape[1] * (1.0 + np.log(2 * np.pi)) + log_std.sum(
+            dim=-1
+        )
+        L.log("train_actor/entropy", entropy.mean(), step)
 
         # optimize the actor
         self.actor_optimizer.zero_grad()
@@ -250,14 +272,15 @@ class BaselineAgent(object):
         self.actor.log(L, step)
 
         self.log_alpha_optimizer.zero_grad()
-        alpha_loss = (self.alpha *
-                      (-log_pi - self.target_entropy).detach()).mean()
-        L.log('train_alpha/loss', alpha_loss, step)
-        L.log('train_alpha/value', self.alpha, step)
+        alpha_loss = (self.alpha * (-log_pi - self.target_entropy).detach()).mean()
+        L.log("train_alpha/loss", alpha_loss, step)
+        L.log("train_alpha/value", self.alpha, step)
         alpha_loss.backward()
         self.log_alpha_optimizer.step()
 
-    def update_decoder(self, obs, action, target_obs, L, step):  #  uses transition model
+    def update_decoder(
+        self, obs, action, target_obs, L, step
+    ):  #  uses transition model
         # image might be stacked, just grab the first 3 (rgb)!
         assert target_obs.dim() == 4
         target_obs = target_obs[:, :3, :, :]
@@ -276,7 +299,7 @@ class BaselineAgent(object):
 
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
-        L.log('train_ae/ae_loss', loss, step)
+        L.log("train_ae/ae_loss", loss, step)
 
         self.decoder.log(L, step, log_freq=LOG_FREQ)
 
@@ -289,28 +312,36 @@ class BaselineAgent(object):
         loss.backward()
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
-        L.log('train_ae/contrastive_loss', loss, step)
+        L.log("train_ae/contrastive_loss", loss, step)
 
     def update_inverse(self, obs, action, next_obs, L, step):
-        non_final_mask = torch.tensor(tuple(map(lambda s: not (s == 0).all(), next_obs)), device=self.device).long()  # hack
+        non_final_mask = torch.tensor(
+            tuple(map(lambda s: not (s == 0).all(), next_obs)), device=self.device
+        ).long()  # hack
         latent = self.critic.encoder(obs[non_final_mask])
-        next_latent = self.critic.encoder(next_obs[non_final_mask].to(self.device).float())
+        next_latent = self.critic.encoder(
+            next_obs[non_final_mask].to(self.device).float()
+        )
         # pred_next_latent = self.transition_model(torch.cat([latent, action], dim=1))
         # fpred_action = self.inverse_model(latent, pred_next_latent)
         pred_action = self.inverse_model(torch.cat([latent, next_latent], dim=1))
-        loss = F.mse_loss(pred_action, action[non_final_mask]) # + F.mse_loss(fpred_action, action)
+        loss = F.mse_loss(
+            pred_action, action[non_final_mask]
+        )  # + F.mse_loss(fpred_action, action)
         self.encoder_optimizer.zero_grad()
         loss.backward()
         self.encoder_optimizer.step()
-        L.log('train_ae/inverse_loss', loss, step)
+        L.log("train_ae/inverse_loss", loss, step)
 
     def update(self, replay_buffer, L, step):
-        if self.decoder_type == 'inverse':
-            obs, action, reward, next_obs, not_done, k_obs = replay_buffer.sample(k=True)
+        if self.decoder_type == "inverse":
+            obs, action, reward, next_obs, not_done, k_obs = replay_buffer.sample(
+                k=True
+            )
         else:
             obs, action, _, reward, next_obs, not_done = replay_buffer.sample()
 
-        L.log('train/batch_reward', reward.mean(), step)
+        L.log("train/batch_reward", reward.mean(), step)
 
         self.update_critic(obs, action, reward, next_obs, not_done, L, step)
 
@@ -325,39 +356,31 @@ class BaselineAgent(object):
                 self.critic.Q2, self.critic_target.Q2, self.critic_tau
             )
             utils.soft_update_params(
-                self.critic.encoder, self.critic_target.encoder,
-                self.encoder_tau
+                self.critic.encoder, self.critic_target.encoder, self.encoder_tau
             )
 
-        if self.decoder is not None and step % self.decoder_update_freq == 0:  # decoder_type is pixel
+        if (
+            self.decoder is not None and step % self.decoder_update_freq == 0
+        ):  # decoder_type is pixel
             self.update_decoder(obs, action, next_obs, L, step)
 
-        if self.decoder_type == 'contrastive':
+        if self.decoder_type == "contrastive":
             self.update_contrastive(obs, action, next_obs, L, step)
-        elif self.decoder_type == 'inverse':
+        elif self.decoder_type == "inverse":
             self.update_inverse(obs, action, k_obs, L, step)
 
     def save(self, model_dir, step):
-        torch.save(
-            self.actor.state_dict(), '%s/actor_%s.pt' % (model_dir, step)
-        )
-        torch.save(
-            self.critic.state_dict(), '%s/critic_%s.pt' % (model_dir, step)
-        )
+        torch.save(self.actor.state_dict(), "%s/actor_%s.pt" % (model_dir, step))
+        torch.save(self.critic.state_dict(), "%s/critic_%s.pt" % (model_dir, step))
         if self.decoder is not None:
             torch.save(
-                self.decoder.state_dict(),
-                '%s/decoder_%s.pt' % (model_dir, step)
+                self.decoder.state_dict(), "%s/decoder_%s.pt" % (model_dir, step)
             )
 
     def load(self, model_dir, step):
-        self.actor.load_state_dict(
-            torch.load('%s/actor_%s.pt' % (model_dir, step))
-        )
-        self.critic.load_state_dict(
-            torch.load('%s/critic_%s.pt' % (model_dir, step))
-        )
+        self.actor.load_state_dict(torch.load("%s/actor_%s.pt" % (model_dir, step)))
+        self.critic.load_state_dict(torch.load("%s/critic_%s.pt" % (model_dir, step)))
         if self.decoder is not None:
             self.decoder.load_state_dict(
-                torch.load('%s/decoder_%s.pt' % (model_dir, step))
+                torch.load("%s/decoder_%s.pt" % (model_dir, step))
             )

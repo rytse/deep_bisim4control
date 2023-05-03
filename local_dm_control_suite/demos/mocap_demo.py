@@ -27,6 +27,7 @@ from __future__ import division
 from __future__ import print_function
 
 import time
+
 # Internal dependencies.
 
 from absl import app
@@ -39,46 +40,50 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string('filename', None, 'amc file to be converted.')
-flags.DEFINE_integer('max_num_frames', 90,
-                     'Maximum number of frames for plotting/playback')
+flags.DEFINE_string("filename", None, "amc file to be converted.")
+flags.DEFINE_integer(
+    "max_num_frames", 90, "Maximum number of frames for plotting/playback"
+)
 
 
 def main(unused_argv):
-  env = humanoid_CMU.stand()
+    env = humanoid_CMU.stand()
 
-  # Parse and convert specified clip.
-  converted = parse_amc.convert(FLAGS.filename,
-                                env.physics, env.control_timestep())
+    # Parse and convert specified clip.
+    converted = parse_amc.convert(FLAGS.filename, env.physics, env.control_timestep())
 
-  max_frame = min(FLAGS.max_num_frames, converted.qpos.shape[1] - 1)
+    max_frame = min(FLAGS.max_num_frames, converted.qpos.shape[1] - 1)
 
-  width = 480
-  height = 480
-  video = np.zeros((max_frame, height, 2 * width, 3), dtype=np.uint8)
+    width = 480
+    height = 480
+    video = np.zeros((max_frame, height, 2 * width, 3), dtype=np.uint8)
 
-  for i in range(max_frame):
-    p_i = converted.qpos[:, i]
-    with env.physics.reset_context():
-      env.physics.data.qpos[:] = p_i
-    video[i] = np.hstack([env.physics.render(height, width, camera_id=0),
-                          env.physics.render(height, width, camera_id=1)])
+    for i in range(max_frame):
+        p_i = converted.qpos[:, i]
+        with env.physics.reset_context():
+            env.physics.data.qpos[:] = p_i
+        video[i] = np.hstack(
+            [
+                env.physics.render(height, width, camera_id=0),
+                env.physics.render(height, width, camera_id=1),
+            ]
+        )
 
-  tic = time.time()
-  for i in range(max_frame):
-    if i == 0:
-      img = plt.imshow(video[i])
-    else:
-      img.set_data(video[i])
-    toc = time.time()
-    clock_dt = toc - tic
     tic = time.time()
-    # Real-time playback not always possible as clock_dt > .03
-    plt.pause(max(0.01, 0.03 - clock_dt))  # Need min display time > 0.0.
-    plt.draw()
-  plt.waitforbuttonpress()
+    for i in range(max_frame):
+        if i == 0:
+            img = plt.imshow(video[i])
+        else:
+            img.set_data(video[i])
+        toc = time.time()
+        clock_dt = toc - tic
+        tic = time.time()
+        # Real-time playback not always possible as clock_dt > .03
+        plt.pause(max(0.01, 0.03 - clock_dt))  # Need min display time > 0.0.
+        plt.draw()
+    plt.waitforbuttonpress()
 
 
-if __name__ == '__main__':
-  flags.mark_flag_as_required('filename')
-  app.run(main)
+if __name__ == "__main__":
+    flags.mark_flag_as_required("filename")
+    app.run(main)

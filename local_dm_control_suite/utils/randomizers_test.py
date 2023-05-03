@@ -32,12 +32,12 @@ mjlib = mjbindings.mjlib
 
 
 class RandomizeUnlimitedJointsTest(parameterized.TestCase):
+    def setUp(self):
+        self.rand = np.random.RandomState(100)
 
-  def setUp(self):
-    self.rand = np.random.RandomState(100)
-
-  def test_single_joint_of_each_type(self):
-    physics = mujoco.Physics.from_xml_string("""<mujoco>
+    def test_single_joint_of_each_type(self):
+        physics = mujoco.Physics.from_xml_string(
+            """<mujoco>
           <default>
             <joint range="0 90" />
           </default>
@@ -62,25 +62,27 @@ class RandomizeUnlimitedJointsTest(parameterized.TestCase):
               <joint name="limited_ball" type="ball" limited="true"/>
             </body>
           </worldbody>
-        </mujoco>""")
+        </mujoco>"""
+        )
 
-    randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
-    self.assertNotEqual(0., physics.named.data.qpos['hinge'])
-    self.assertNotEqual(0., physics.named.data.qpos['limited_hinge'])
-    self.assertNotEqual(0., physics.named.data.qpos['limited_slide'])
+        randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
+        self.assertNotEqual(0.0, physics.named.data.qpos["hinge"])
+        self.assertNotEqual(0.0, physics.named.data.qpos["limited_hinge"])
+        self.assertNotEqual(0.0, physics.named.data.qpos["limited_slide"])
 
-    self.assertNotEqual(0., np.sum(physics.named.data.qpos['ball']))
-    self.assertNotEqual(0., np.sum(physics.named.data.qpos['limited_ball']))
+        self.assertNotEqual(0.0, np.sum(physics.named.data.qpos["ball"]))
+        self.assertNotEqual(0.0, np.sum(physics.named.data.qpos["limited_ball"]))
 
-    self.assertNotEqual(0., np.sum(physics.named.data.qpos['free'][3:]))
+        self.assertNotEqual(0.0, np.sum(physics.named.data.qpos["free"][3:]))
 
-    # Unlimited slide and the positional part of the free joint remains
-    # uninitialized.
-    self.assertEqual(0., physics.named.data.qpos['slide'])
-    self.assertEqual(0., np.sum(physics.named.data.qpos['free'][:3]))
+        # Unlimited slide and the positional part of the free joint remains
+        # uninitialized.
+        self.assertEqual(0.0, physics.named.data.qpos["slide"])
+        self.assertEqual(0.0, np.sum(physics.named.data.qpos["free"][:3]))
 
-  def test_multiple_joints_of_same_type(self):
-    physics = mujoco.Physics.from_xml_string("""<mujoco>
+    def test_multiple_joints_of_same_type(self):
+        physics = mujoco.Physics.from_xml_string(
+            """<mujoco>
           <worldbody>
             <body>
               <geom type="box" size="1 1 1"/>
@@ -89,38 +91,45 @@ class RandomizeUnlimitedJointsTest(parameterized.TestCase):
               <joint name="hinge_3" type="hinge"/>
             </body>
           </worldbody>
-        </mujoco>""")
+        </mujoco>"""
+        )
 
-    randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
-    self.assertNotEqual(0., physics.named.data.qpos['hinge_1'])
-    self.assertNotEqual(0., physics.named.data.qpos['hinge_2'])
-    self.assertNotEqual(0., physics.named.data.qpos['hinge_3'])
+        randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
+        self.assertNotEqual(0.0, physics.named.data.qpos["hinge_1"])
+        self.assertNotEqual(0.0, physics.named.data.qpos["hinge_2"])
+        self.assertNotEqual(0.0, physics.named.data.qpos["hinge_3"])
 
-    self.assertNotEqual(physics.named.data.qpos['hinge_1'],
-                        physics.named.data.qpos['hinge_2'])
+        self.assertNotEqual(
+            physics.named.data.qpos["hinge_1"], physics.named.data.qpos["hinge_2"]
+        )
 
-    self.assertNotEqual(physics.named.data.qpos['hinge_2'],
-                        physics.named.data.qpos['hinge_3'])
+        self.assertNotEqual(
+            physics.named.data.qpos["hinge_2"], physics.named.data.qpos["hinge_3"]
+        )
 
-    self.assertNotEqual(physics.named.data.qpos['hinge_1'],
-                        physics.named.data.qpos['hinge_3'])
+        self.assertNotEqual(
+            physics.named.data.qpos["hinge_1"], physics.named.data.qpos["hinge_3"]
+        )
 
-  def test_unlimited_hinge_randomization_range(self):
-    physics = mujoco.Physics.from_xml_string("""<mujoco>
+    def test_unlimited_hinge_randomization_range(self):
+        physics = mujoco.Physics.from_xml_string(
+            """<mujoco>
           <worldbody>
             <body>
               <geom type="box" size="1 1 1"/>
               <joint name="hinge" type="hinge"/>
             </body>
           </worldbody>
-        </mujoco>""")
+        </mujoco>"""
+        )
 
-    for _ in range(10):
-      randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
-      self.assertBetween(physics.named.data.qpos['hinge'], -np.pi, np.pi)
+        for _ in range(10):
+            randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
+            self.assertBetween(physics.named.data.qpos["hinge"], -np.pi, np.pi)
 
-  def test_limited_1d_joint_limits_are_respected(self):
-    physics = mujoco.Physics.from_xml_string("""<mujoco>
+    def test_limited_1d_joint_limits_are_respected(self):
+        physics = mujoco.Physics.from_xml_string(
+            """<mujoco>
           <default>
             <joint limited="true"/>
           </default>
@@ -131,34 +140,38 @@ class RandomizeUnlimitedJointsTest(parameterized.TestCase):
               <joint name="slide" type="slide" range="30 50"/>
             </body>
           </worldbody>
-        </mujoco>""")
+        </mujoco>"""
+        )
 
-    for _ in range(10):
-      randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
-      self.assertBetween(physics.named.data.qpos['hinge'],
-                         np.deg2rad(0), np.deg2rad(10))
-      self.assertBetween(physics.named.data.qpos['slide'], 30, 50)
+        for _ in range(10):
+            randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
+            self.assertBetween(
+                physics.named.data.qpos["hinge"], np.deg2rad(0), np.deg2rad(10)
+            )
+            self.assertBetween(physics.named.data.qpos["slide"], 30, 50)
 
-  def test_limited_ball_joint_are_respected(self):
-    physics = mujoco.Physics.from_xml_string("""<mujoco>
+    def test_limited_ball_joint_are_respected(self):
+        physics = mujoco.Physics.from_xml_string(
+            """<mujoco>
           <worldbody>
             <body name="body" zaxis="1 0 0">
               <geom type="box" size="1 1 1"/>
               <joint name="ball" type="ball" limited="true" range="0 60"/>
             </body>
           </worldbody>
-        </mujoco>""")
+        </mujoco>"""
+        )
 
-    body_axis = np.array([1., 0., 0.])
-    joint_axis = np.zeros(3)
-    for _ in range(10):
-      randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
+        body_axis = np.array([1.0, 0.0, 0.0])
+        joint_axis = np.zeros(3)
+        for _ in range(10):
+            randomizers.randomize_limited_and_rotational_joints(physics, self.rand)
 
-      quat = physics.named.data.qpos['ball']
-      mjlib.mju_rotVecQuat(joint_axis, body_axis, quat)
-      angle_cos = np.dot(body_axis, joint_axis)
-      self.assertGreater(angle_cos, 0.5)  # cos(60) = 0.5
+            quat = physics.named.data.qpos["ball"]
+            mjlib.mju_rotVecQuat(joint_axis, body_axis, quat)
+            angle_cos = np.dot(body_axis, joint_axis)
+            self.assertGreater(angle_cos, 0.5)  # cos(60) = 0.5
 
 
-if __name__ == '__main__':
-  absltest.main()
+if __name__ == "__main__":
+    absltest.main()

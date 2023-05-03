@@ -16,7 +16,10 @@ def tie_weights(src, trg):
 
 class PixelEncoder(nn.Module):
     """Convolutional encoder of pixels observations."""
-    def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None):
+
+    def __init__(
+        self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=None
+    ):
         super().__init__()
 
         assert len(obs_shape) == 3
@@ -24,9 +27,7 @@ class PixelEncoder(nn.Module):
         self.feature_dim = feature_dim
         self.num_layers = num_layers
 
-        self.convs = nn.ModuleList(
-            [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
-        )
+        self.convs = nn.ModuleList([nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)])
         for i in range(num_layers - 1):
             self.convs.append(nn.Conv2d(num_filters, num_filters, 3, stride=1))
 
@@ -42,15 +43,15 @@ class PixelEncoder(nn.Module):
         return mu + eps * std
 
     def forward_conv(self, obs):
-        obs = obs / 255.
-        self.outputs['obs'] = obs
+        obs = obs / 255.0
+        self.outputs["obs"] = obs
 
         conv = torch.relu(self.convs[0](obs))
-        self.outputs['conv1'] = conv
+        self.outputs["conv1"] = conv
 
         for i in range(1, self.num_layers):
             conv = torch.relu(self.convs[i](conv))
-            self.outputs['conv%s' % (i + 1)] = conv
+            self.outputs["conv%s" % (i + 1)] = conv
 
         h = conv.view(conv.size(0), -1)
         return h
@@ -62,10 +63,10 @@ class PixelEncoder(nn.Module):
             h = h.detach()
 
         h_fc = self.fc(h)
-        self.outputs['fc'] = h_fc
+        self.outputs["fc"] = h_fc
 
         out = self.ln(h_fc)
-        self.outputs['ln'] = out
+        self.outputs["ln"] = out
 
         return out
 
@@ -80,18 +81,19 @@ class PixelEncoder(nn.Module):
             return
 
         for k, v in self.outputs.items():
-            L.log_histogram('train_encoder/%s_hist' % k, v, step)
+            L.log_histogram("train_encoder/%s_hist" % k, v, step)
             if len(v.shape) > 2:
-                L.log_image('train_encoder/%s_img' % k, v[0], step)
+                L.log_image("train_encoder/%s_img" % k, v[0], step)
 
         for i in range(self.num_layers):
-            L.log_param('train_encoder/conv%s' % (i + 1), self.convs[i], step)
-        L.log_param('train_encoder/fc', self.fc, step)
-        L.log_param('train_encoder/ln', self.ln, step)
+            L.log_param("train_encoder/conv%s" % (i + 1), self.convs[i], step)
+        L.log_param("train_encoder/fc", self.fc, step)
+        L.log_param("train_encoder/ln", self.ln, step)
 
 
 class PixelEncoderCarla096(PixelEncoder):
     """Convolutional encoder of pixels observations."""
+
     def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1):
         super(PixelEncoder, self).__init__()
 
@@ -100,9 +102,7 @@ class PixelEncoderCarla096(PixelEncoder):
         self.feature_dim = feature_dim
         self.num_layers = num_layers
 
-        self.convs = nn.ModuleList(
-            [nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)]
-        )
+        self.convs = nn.ModuleList([nn.Conv2d(obs_shape[0], num_filters, 3, stride=2)])
         for i in range(num_layers - 1):
             self.convs.append(nn.Conv2d(num_filters, num_filters, 3, stride=stride))
 
@@ -115,6 +115,7 @@ class PixelEncoderCarla096(PixelEncoder):
 
 class PixelEncoderCarla098(PixelEncoder):
     """Convolutional encoder of pixels observations."""
+
     def __init__(self, obs_shape, feature_dim, num_layers=2, num_filters=32, stride=1):
         super(PixelEncoder, self).__init__()
 
@@ -154,15 +155,15 @@ class IdentityEncoder(nn.Module):
         pass
 
 
-_AVAILABLE_ENCODERS = {'pixel': PixelEncoder,
-                       'pixelCarla096': PixelEncoderCarla096,
-                       'pixelCarla098': PixelEncoderCarla098,
-                       'identity': IdentityEncoder}
+_AVAILABLE_ENCODERS = {
+    "pixel": PixelEncoder,
+    "pixelCarla096": PixelEncoderCarla096,
+    "pixelCarla098": PixelEncoderCarla098,
+    "identity": IdentityEncoder,
+}
 
 
-def make_encoder(
-    encoder_type, obs_shape, feature_dim, num_layers, num_filters, stride
-):
+def make_encoder(encoder_type, obs_shape, feature_dim, num_layers, num_filters, stride):
     assert encoder_type in _AVAILABLE_ENCODERS
     return _AVAILABLE_ENCODERS[encoder_type](
         obs_shape, feature_dim, num_layers, num_filters, stride
