@@ -7,7 +7,7 @@
 import torch
 import numpy as np
 import torch.nn as nn
-import gym
+import gymnasium as gym
 import os
 from collections import deque
 import random
@@ -178,9 +178,9 @@ class FrameStack(gym.Wrapper):
         return self._get_obs()
 
     def step(self, action):
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, terminated, truncated, info = self.env.step(action)
         self._frames.append(obs)
-        return self._get_obs(), reward, done, info
+        return self._get_obs(), reward, terminated, truncated, info
 
     def _get_obs(self):
         assert len(self._frames) == self._k

@@ -1,4 +1,4 @@
-from gym import core, spaces
+from gymnasium import core, spaces
 import glob
 import os
 import local_dm_control_suite as suite
@@ -184,7 +184,7 @@ class DMCWrapper(core.Env):
                 break
         obs = self._get_obs(time_step)
         extra["discount"] = time_step.discount
-        return obs, reward, done, extra
+        return obs, reward, done, done, extra
 
     def reset(self):
         time_step = self._env.reset()

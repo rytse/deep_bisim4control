@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import argparse
 import os
-import gym
+import gymnasium as gym
 import time
 import json
 import dmc2gym
@@ -182,7 +182,8 @@ def evaluate(
                         .numpy()
                     )
 
-            obs, reward, done, info = env.step(action)
+            obs, reward, terminated, truncated, info = env.step(action)
+            done = done or terminated or truncated
 
             # metrics:
             if do_carla_metrics:
@@ -469,13 +470,14 @@ def main():
                 agent.update(replay_buffer, L, step)
 
         curr_reward = reward
-        next_obs, reward, done, _ = env.step(action)
+        next_obs, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
 
         # allow infinit bootstrap
-        done_bool = 0 if episode_step + 1 == env._max_episode_steps else float(done)
+        ep_done = done and not (episode_step + 1 == env._max_episode_steps)
         episode_reward += reward
 
-        replay_buffer.add(obs, action, curr_reward, reward, next_obs, done_bool)
+        replay_buffer.add(obs, action, curr_reward, reward, next_obs, ep_done)
         np.copyto(replay_buffer.k_obses[replay_buffer.idx - args.k], next_obs)
 
         obs = next_obs
@@ -491,7 +493,7 @@ def collect_data(env, agent, num_rollouts, path_length, checkpoint_path):
         observation = env.reset()
         for j in range(path_length):
             action = agent.sample_action(observation)
-            next_observation, reward, done, _ = env.step(action)
+            next_observation, reward, terminated, truncated, _ = env.step(action)
             obses.append(observation)
             acs.append(action)
             rews.append(reward)

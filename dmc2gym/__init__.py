@@ -1,5 +1,5 @@
-import gym
-from gym.envs.registration import register
+import gymnasium as gym
+from gymnasium.envs.registration import register, registry
 
 
 def make(
@@ -28,7 +28,7 @@ def make(
     # shorten episode length
     max_episode_steps = (episode_length + frame_skip - 1) // frame_skip
 
-    if not env_id in gym.envs.registry.env_specs:
+    if not env_id in registry:
         register(
             id=env_id,
             entry_point="dmc2gym.wrappers:DMCWrapper",
